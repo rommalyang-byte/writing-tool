@@ -214,7 +214,46 @@ function Toolbar({ currentView, onViewChange }: {
 
 /** 设置面板（ModelProvider 配置） */
 function SettingsPanel() {
+  const [baseUrl, setBaseUrl] = useState("https://api.openai.com/v1");
+  const [model, setModel] = useState("gpt-4o-mini");
   const [apiKey, setApiKey] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  // 应用启动时从本地 store 读取已保存的配置
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
+  async function loadSettings() {
+    try {
+      const { Store } = await import("@tauri-apps/plugin-store");
+      const store = await Store.load("settings.json");
+      const savedBaseUrl = await store.get<string>("baseUrl");
+      const savedModel = await store.get<string>("model");
+      const savedApiKey = await store.get<string>("apiKey");
+      if (savedBaseUrl) setBaseUrl(savedBaseUrl);
+      if (savedModel) setModel(savedModel);
+      if (savedApiKey) setApiKey(savedApiKey);
+    } catch {
+      // store 文件不存在或读取失败，使用默认值
+    }
+  }
+
+  async function handleSave() {
+    try {
+      const { Store } = await import("@tauri-apps/plugin-store");
+      const store = await Store.load("settings.json");
+      await store.set("baseUrl", baseUrl);
+      await store.set("model", model);
+      await store.set("apiKey", apiKey);
+      await store.save();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2000);
+    } catch (e) {
+      console.error("保存配置失败:", e);
+      alert("保存配置失败，请重试");
+    }
+  }
 
   return (
     <div style={{ marginTop: 16 }}>
@@ -224,7 +263,8 @@ function SettingsPanel() {
           <label style={{ fontSize: 13, color: "var(--text-secondary)" }}>Base URL</label>
           <input
             type="text"
-            defaultValue="https://api.openai.com/v1"
+            value={baseUrl}
+            onChange={(e) => setBaseUrl(e.target.value)}
             style={{ width: "100%", marginTop: 4 }}
           />
         </div>
@@ -232,7 +272,8 @@ function SettingsPanel() {
           <label style={{ fontSize: 13, color: "var(--text-secondary)" }}>Model</label>
           <input
             type="text"
-            defaultValue="gpt-4o-mini"
+            value={model}
+            onChange={(e) => setModel(e.target.value)}
             style={{ width: "100%", marginTop: 4 }}
           />
         </div>
@@ -247,7 +288,9 @@ function SettingsPanel() {
           />
         </div>
         <div>
-          <button className="btn-primary">保存配置</button>
+          <button className="btn-primary" onClick={handleSave}>
+            {saved ? "✅ 已保存" : "保存配置"}
+          </button>
           <span style={{ marginLeft: 12, fontSize: 12, color: "var(--text-secondary)" }}>
             ⚠ Key 仅存本地，不上传
           </span>
